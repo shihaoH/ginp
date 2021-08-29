@@ -25,18 +25,35 @@ func (g *Gp) Launch(addr ...string) {
 	}
 }
 
-// Mount 挂载，将实现出的接口挂载到gp，链式函数
-func (g *Gp) Mount(group string, is ...Interface) *Gp {
+// Mount 挂载，将实现出的接口挂载到gp
+func (g *Gp) Mount(group string, control ...Controller) *Gp {
 	g.group = g.Group(group)
-	for _, i := range is {
-		i.Build(g)
+	for _, c := range control {
+		c.Build(g)
 	}
 	return g
 }
 
-// Handle 重写gin.Group.Handle，保证前后一致
-func (g *Gp) Handle(httpMethod, relativePath string, handlers ...gin.HandlerFunc) *Gp {
-	// 可变参数传入后是切片，需要[...]解构成多参数
-	g.group.Handle(httpMethod, relativePath, handlers...)
+// Handle 封装注册
+func (g *Gp) Handle(httpMethod, relativePath string, handler interface{}) *Gp {
+	// 响应体转换后执行
+	if h := Convert(handler); h != nil {
+		g.group.Handle(httpMethod, relativePath, h)
+	}
+	return g
+}
+
+// Mid 中间件插入
+func (g *Gp) Mid(f Fairing) *Gp {
+	g.Use(func(context *gin.Context) {
+		err := f.Func(context)
+		if err != nil {
+			// 有错误直接抛出响应
+			context.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		} else {
+			// 下层洋葱
+			context.Next()
+		}
+	})
 	return g
 }
