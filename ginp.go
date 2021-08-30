@@ -1,33 +1,34 @@
 package ginp
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
-	"reflect"
 )
 
 type Gp struct {
 	*gin.Engine
 	group *gin.RouterGroup
-	props []interface{}
+	beanFactory *BeanFactory
 }
 
 // Construct 构造函数
 func Construct() *Gp {
 	g := &Gp{
 		Engine: gin.New(),
-		props: make([]interface{}, 0),
+		beanFactory: NewBeanFactory(),
 	}
 	g.Use(ErrHandler())
+	g.beanFactory.setBean(InitConfig())
 	return g
 }
 
 // Launch 启动，默认使用8080端口
-func (g *Gp) Launch(addr ...string) {
-	if len(addr) > 0 {
-		g.Run(addr...)
-	} else {
-		g.Run(":8080")
+func (g *Gp) Launch() {
+	var port int32 = 8080
+	if conf := g.beanFactory.GetBean(new(SysConfig)); conf != nil {
+		port = conf.(*SysConfig).Server.Port
 	}
+	g.Run(fmt.Sprintf(":%d", port))
 }
 
 // Mount 挂载，将实现出的接口挂载到gp
@@ -35,7 +36,7 @@ func (g *Gp) Mount(group string, control ...Controller) *Gp {
 	g.group = g.Group(group)
 	for _, c := range control {
 		c.Build(g)
-		g.setProp(c)
+		g.beanFactory.inject(c)
 	}
 	return g
 }
@@ -65,33 +66,9 @@ func (g *Gp) Mid(f Fairing) *Gp {
 }
 
 // Beans 依赖注入
-func (g *Gp) Beans(prop ...interface{}) *Gp {
-	g.props = append(g.props, prop...)
+func (g *Gp) Beans(beans ...interface{}) *Gp {
+	g.beanFactory.setBean(beans)
 	return g
 }
 
-// setProp 设置属性
-func (g *Gp) setProp(c Controller) {
-	cla := reflect.ValueOf(c).Elem()
-	for i := 0; i < cla.NumField(); i++ {
-		f := cla.Field(i)
-		if !f.IsNil() || f.Kind() != reflect.Ptr {
-			continue
-		}
-		if p := g.getProp(f.Type()); p != nil {
-			f.Set(reflect.New(f.Type().Elem()))
-			f.Elem().Set(reflect.ValueOf(p).Elem())
-		}
-	}
-}
-
-// getProp 获取参数
-func (g *Gp) getProp(t reflect.Type) interface{} {
-	for _, p := range g.props {
-		if t == reflect.TypeOf(p) {
-			return p
-		}
-	}
-	return nil
-}
 
