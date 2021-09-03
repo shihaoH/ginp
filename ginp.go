@@ -7,14 +7,14 @@ import (
 
 type Gp struct {
 	*gin.Engine
-	group *gin.RouterGroup
+	group       *gin.RouterGroup
 	beanFactory *BeanFactory
 }
 
 // Construct 构造函数
 func Construct() *Gp {
 	g := &Gp{
-		Engine: gin.New(),
+		Engine:      gin.New(),
 		beanFactory: NewBeanFactory(),
 	}
 	g.Use(ErrHandler())
@@ -70,5 +70,3 @@ func (g *Gp) Beans(beans ...interface{}) *Gp {
 	g.beanFactory.setBean(beans)
 	return g
 }
-
-

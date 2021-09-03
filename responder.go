@@ -42,7 +42,7 @@ func (s StringResponder) RespondTo() gin.HandlerFunc {
 	}
 }
 
-type Json interface {}
+type Json interface{}
 type JsonResponder func(*gin.Context) Json
 
 func (j JsonResponder) RespondTo() gin.HandlerFunc {
@@ -50,5 +50,3 @@ func (j JsonResponder) RespondTo() gin.HandlerFunc {
 		context.JSON(200, j(context))
 	}
 }
-
-

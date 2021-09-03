@@ -38,7 +38,7 @@ func InitConfig() *SysConfig {
 }
 
 func LoadConfigFile() []byte {
-	conf, err :=ioutil.ReadFile(CONF_FILE)
+	conf, err := ioutil.ReadFile(CONF_FILE)
 	if err != nil {
 		return nil
 	}
