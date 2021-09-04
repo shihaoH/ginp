@@ -3,12 +3,14 @@ package ginp
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"log"
 )
 
 type Gp struct {
 	*gin.Engine
 	group       *gin.RouterGroup
 	beanFactory *BeanFactory
+	exprData    map[string]interface{}
 }
 
 // Construct 构造函数
@@ -16,6 +18,7 @@ func Construct() *Gp {
 	g := &Gp{
 		Engine:      gin.New(),
 		beanFactory: NewBeanFactory(),
+		exprData:    make(map[string]interface{}),
 	}
 	g.Use(ErrHandler())
 	g.beanFactory.setBean(InitConfig())
@@ -28,6 +31,7 @@ func (g *Gp) Launch() {
 	if conf := g.beanFactory.GetBean(new(SysConfig)); conf != nil {
 		port = conf.(*SysConfig).Server.Port
 	}
+	getCronTask().Start()
 	g.Run(fmt.Sprintf(":%d", port))
 }
 
@@ -37,6 +41,7 @@ func (g *Gp) Mount(group string, control ...Controller) *Gp {
 	for _, c := range control {
 		c.Build(g)
 		g.beanFactory.inject(c)
+		g.Beans(c)
 	}
 	return g
 }
@@ -66,7 +71,30 @@ func (g *Gp) Mid(f Fairing) *Gp {
 }
 
 // Beans 依赖注入
-func (g *Gp) Beans(beans ...interface{}) *Gp {
+func (g *Gp) Beans(beans ...Bean) *Gp {
+	// bean 注册
+	for _, bean := range beans {
+		g.exprData[bean.Name()] = bean
+	}
 	g.beanFactory.setBean(beans)
+	return g
+}
+
+// Task 增加定时任务
+func (g *Gp) Task(cron string, expr interface{}) *Gp {
+	var err error
+	if f, ok := expr.(func()); ok {
+		_, err = getCronTask().AddFunc(cron, f)
+	} else if exp, ok := expr.(Expr); ok {
+		_, err = getCronTask().AddFunc(cron, func() {
+			_, exprErr := ExecExpr(exp, g.exprData)
+			if exprErr != nil {
+				log.Fatalln(exprErr)
+			}
+		})
+	}
+	if err != nil {
+		log.Fatalln(err)
+	}
 	return g
 }

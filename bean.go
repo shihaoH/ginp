@@ -2,6 +2,10 @@ package ginp
 
 import "reflect"
 
+type Bean interface {
+	Name() string
+}
+
 type BeanFactory struct {
 	beans []interface{}
 }
